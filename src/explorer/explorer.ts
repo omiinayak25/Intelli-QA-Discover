@@ -157,10 +157,26 @@ export class Explorer {
     const pendingRequests: CapturedRequest[] = [];
     let currentActionNode: string | null = null;
     context.on("request", (req) => {
+      try {
       const rt = req.resourceType();
       if (["image", "font", "media", "stylesheet"].includes(rt)) return;
       const shape: string[] = [];
-      const pd = req.postDataJSON?.();
+      // postDataJSON() throws on non-JSON bodies (form-encoded, multipart);
+      // request shape is best-effort structure only, values never stored.
+      let pd: unknown = null;
+      try {
+        pd = req.postDataJSON?.();
+      } catch {
+        /* non-JSON body — capture form-encoded keys instead */
+        const raw = req.postData();
+        if (raw) {
+          try {
+            for (const k of Array.from(new URLSearchParams(raw).keys()).slice(0, this.config.captureShapeMaxKeys)) shape.push(k);
+          } catch {
+            /* opaque body — no shape */
+          }
+        }
+      }
       if (pd && typeof pd === "object") {
         for (const k of Object.keys(pd).slice(0, this.config.captureShapeMaxKeys)) shape.push(k);
       }
@@ -187,11 +203,18 @@ export class Explorer {
         requestShape: Array.from(new Set(shape)),
         authSignalObserved: auth as "cookie" | "bearer" | "none",
       });
+      } catch {
+        /* never let network observation crash the crawl */
+      }
     });
     context.on("response", (res) => {
-      const tmpl = pathTemplate(res.url(), this.config.url);
-      const match = pendingRequests.find((r) => r.urlTemplate === tmpl && r.status === null);
-      if (match) match.status = res.status();
+      try {
+        const tmpl = pathTemplate(res.url(), this.config.url);
+        const match = pendingRequests.find((r) => r.urlTemplate === tmpl && r.status === null);
+        if (match) match.status = res.status();
+      } catch {
+        /* observation only */
+      }
     });
 
     const page = await context.newPage();
@@ -257,6 +280,29 @@ export class Explorer {
 
       // auth wall detection
       const finalUrl = page.url();
+
+      // post-redirect scope check: a same-origin link that 30x-redirects
+      // off-origin is an external boundary — record it, do not crawl it.
+      if (this.config.sameOriginOnly && this.origin) {
+        let finalOrigin = "";
+        try {
+          finalOrigin = new URL(finalUrl).origin;
+        } catch {
+          /* ignore */
+        }
+        if (finalOrigin && finalOrigin !== this.origin) {
+          if (!this.blockedItems.some((b) => b.blockerType === "external_redirect" && b.target === finalUrl)) {
+            this.blockedItems.push({
+              target: finalUrl,
+              reason: "A same-origin link redirected to a different origin outside the crawl scope.",
+              humanPointer: "Follow the outbound link manually and note where it lands.",
+              blockerType: "external_redirect",
+            });
+          }
+          continue;
+        }
+      }
+
       if (role.role === "guest" && /login|signin|sign-in|auth/.test(finalUrl) && !/login/.test(node.url)) {
         this.blockedItems.push({
           target: node.url,

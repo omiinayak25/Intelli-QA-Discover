@@ -21,7 +21,7 @@ const KW = (s: string) => (s ?? "").toLowerCase();
 export function inferComponentSemantics(label: string, type: string, page: string): SemanticGuess {
   const l = KW(label);
   const rules: { match: RegExp; fn: string; purpose: string; behavior?: string; conf: number }[] = [
-    { match: /\bbook\b|book now/, fn: "Booking", purpose: "starts a booking", behavior: "opens Seat Selection", conf: 90 },
+    { match: /book now|\bbooking\b|reserve seat|\bshowtime/, fn: "Booking", purpose: "starts a booking", behavior: "opens Seat Selection", conf: 90 },
     { match: /\bpay|checkout|payment\b/, fn: "Payment", purpose: "begins the payment step", behavior: "opens Payment", conf: 88 },
     { match: /\bsearch\b/, fn: "Search & Discovery", purpose: "searches the catalog", behavior: "shows results", conf: 92 },
     { match: /\blogin|sign in\b/, fn: "Authentication", purpose: "opens the login form", behavior: "opens Login", conf: 94 },
@@ -85,7 +85,7 @@ export interface FeatureArea {
 export const FEATURE_AREAS: FeatureArea[] = [
   { key: "authentication", name: "Authentication", category: "identity", match: /login|sign in|register|sign up|logout|forgot|password|otp|2fa/i },
   { key: "search-discovery", name: "Search & Discovery", category: "search", match: /search|filter|sort|categor|browse|recommend/i },
-  { key: "booking", name: "Booking", category: "booking", match: /book|seat|showtime|reserv|ticket/i },
+  { key: "booking", name: "Booking", category: "booking", match: /book now|\bbooking\b|\bseat\b|showtime|\breservation\b|\breserve\b|\bslot\b|\bticket\b/i },
   { key: "payment", name: "Payment", category: "commerce", match: /pay|checkout|coupon|wallet|card|upi|invoice/i },
   { key: "profile-account", name: "Profile & Account", category: "identity", match: /profile|account|avatar|preferenc|setting/i },
   { key: "user-management", name: "User Management", category: "admin", match: /user management|create user|edit user|delete user|admin/i },

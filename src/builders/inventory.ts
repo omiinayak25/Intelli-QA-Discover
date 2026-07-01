@@ -20,8 +20,16 @@ export interface QaInventory extends Envelope {
   responsiveViewsList: string[];
 }
 
+export interface CrawlScope {
+  pagesVisited: number;
+  pagesNotReachable: number;
+  roles: string[];
+  maxDepth: number;
+}
+
 export interface ApplicationOverview extends Envelope {
   artifact: "application_overview";
+  crawlScope?: CrawlScope;
   pagesFound: { id: string; label: string; url: string; rolesVisible: string[]; confidence: number }[];
   globalComponents: { id: string; label: string; componentType: string; detectedBy: string[]; confidence: number }[];
   pageComponents: { pageId: string; pageLabel: string; components: { id: string; label: string; componentType: string; detectedBy: string[]; confidence: number }[] }[];
@@ -109,7 +117,11 @@ export function buildInventory(model: DiscoveryModel, generatedAt: string): QaIn
   };
 }
 
-export function buildOverview(model: DiscoveryModel, generatedAt: string): ApplicationOverview {
+export function buildOverview(
+  model: DiscoveryModel,
+  generatedAt: string,
+  crawlScope?: CrawlScope,
+): ApplicationOverview {
   const globalIds = new Set(model.globalComponents);
   const detectedBy = (dm: string) => [dm];
 
@@ -151,7 +163,7 @@ export function buildOverview(model: DiscoveryModel, generatedAt: string): Appli
     generatedAt,
   });
 
-  return { ...envelope, artifact: "application_overview", pagesFound, globalComponents, pageComponents, businessFlows };
+  return { ...envelope, artifact: "application_overview", crawlScope, pagesFound, globalComponents, pageComponents, businessFlows };
 }
 
 function labelForStep(model: DiscoveryModel, s: { pageId?: string; action: string }): string {
@@ -203,6 +215,15 @@ export function renderOverviewMd(ov: ApplicationOverview): string {
   const L: string[] = [];
   L.push(`# Application Overview`);
   L.push("");
+  if (ov.crawlScope) {
+    const s = ov.crawlScope;
+    L.push(
+      `_Scope: partial discovery — visited ${s.pagesVisited} page archetype(s) as ${s.roles.map(titleCase).join(", ")}, ` +
+        `max depth ${s.maxDepth}; ${s.pagesNotReachable} link(s) were off-scope or unreachable. ` +
+        `This lists what was reached — see the Discovery Summary for crawl completeness._`,
+    );
+    L.push("");
+  }
   L.push(`Pages Found: ${ov.pagesFound.map((p) => p.label).join(", ")}`);
   L.push("");
   L.push(`Global Components: ${ov.globalComponents.map((c) => c.label).join(", ")}`);

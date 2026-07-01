@@ -10,7 +10,7 @@
 import path from "node:path";
 import { FilesystemRepository } from "../storage/filesystem.js";
 import { FILENAMES } from "../core/constants.js";
-import { assertClean } from "../core/discipline.js";
+import { assertClean, buildAllowBlob } from "../core/discipline.js";
 import type { RawCapture } from "../core/raw-capture.js";
 import type { DiscoveryModel } from "../core/types.js";
 import { classify } from "../classifier/classifier.js";
@@ -46,17 +46,18 @@ export async function runPipeline(repo: FilesystemRepository, runId: string): Pr
 
   // Phase 2 — Classification
   const model = classify(raw, at);
-  assertClean(model, "discovery-model.json");
+  const allow = buildAllowBlob(raw, model); // permit captured app content (inventory-noun exception)
+  assertClean(model, "discovery-model.json", allow);
   await repo.saveJson(runId, FILENAMES.discoveryModelJson, model);
   const modelMd = renderDiscoveryModelMd(model);
-  assertClean(modelMd, "discovery-model.md");
+  assertClean(modelMd, "discovery-model.md", allow);
   await repo.saveFile(runId, FILENAMES.discoveryModelMd, modelMd);
 
   // Phase 3 — Feature Tree + Relationships
   const tree = buildFeatureTree(model, at);
   const rel = buildFeatureRelationships(model, at);
-  assertClean(tree, "feature-tree.json");
-  assertClean(rel, "feature-relationships.json");
+  assertClean(tree, "feature-tree.json", allow);
+  assertClean(rel, "feature-relationships.json", allow);
   await repo.saveJson(runId, FILENAMES.featureTreeJson, tree);
   await repo.saveJson(runId, FILENAMES.featureRelationshipsJson, rel);
   await repo.saveFile(runId, FILENAMES.featureTreeMd, renderFeatureTreeMd(tree));
@@ -64,40 +65,45 @@ export async function runPipeline(repo: FilesystemRepository, runId: string): Pr
 
   // Phase 4 — Inventory + Overview
   const inventory = buildInventory(model, at);
-  const overview = buildOverview(model, at);
-  assertClean(inventory, "qa-inventory.json");
-  assertClean(overview, "application-overview.json");
+  const overview = buildOverview(model, at, {
+    pagesVisited: model.pages.length,
+    pagesNotReachable: raw.telemetry.pagesNotReachable + raw.telemetry.pagesSkipped.length,
+    roles: model.roles.map((r) => r.name),
+    maxDepth: raw.telemetry.maxDepth,
+  });
+  assertClean(inventory, "qa-inventory.json", allow);
+  assertClean(overview, "application-overview.json", allow);
   await repo.saveJson(runId, FILENAMES.qaInventoryJson, inventory);
   await repo.saveJson(runId, FILENAMES.applicationOverviewJson, overview);
   const invMd = renderInventoryMd(inventory);
   const ovMd = renderOverviewMd(overview);
-  assertClean(invMd, "qa-inventory.md");
-  assertClean(ovMd, "application-overview.md");
+  assertClean(invMd, "qa-inventory.md", allow);
+  assertClean(ovMd, "application-overview.md", allow);
   await repo.saveFile(runId, "qa-inventory.md", invMd);
   await repo.saveFile(runId, FILENAMES.applicationOverviewMd, ovMd);
 
   // Phase 5 — QA Map
   const qaMap = buildQaMap(model, at);
-  assertClean(qaMap, "qa-map.json");
+  assertClean(qaMap, "qa-map.json", allow);
   await repo.saveJson(runId, FILENAMES.qaMapJson, qaMap);
   await repo.saveFile(runId, FILENAMES.qaMapMd, renderQaMapMd(qaMap));
   await repo.saveFile(runId, FILENAMES.qaMapHtml, renderQaMapHtml(qaMap));
 
   // Phase 6 — Checklist
   const checklist = buildChecklist(model, qaMap, at);
-  assertClean(checklist, "qa-checklist.json");
+  assertClean(checklist, "qa-checklist.json", allow);
   await repo.saveJson(runId, FILENAMES.qaChecklistJson, checklist);
   const chkMd = renderChecklistMd(checklist);
-  assertClean(chkMd, "qa-checklist.md");
+  assertClean(chkMd, "qa-checklist.md", allow);
   await repo.saveFile(runId, FILENAMES.qaChecklistMd, chkMd);
 
   // Phase 7 — Discovery Summary, Validation, Manual Review
   const summary = buildDiscoverySummary(raw, at);
   const manualReview = buildManualReview(raw, model, at);
   const validation = buildDiscoveryValidation(raw, at);
-  assertClean(summary, "discovery-summary.json");
-  assertClean(manualReview, "manual-review.json");
-  assertClean(validation, "discovery-validation.json");
+  assertClean(summary, "discovery-summary.json", allow);
+  assertClean(manualReview, "manual-review.json", allow);
+  assertClean(validation, "discovery-validation.json", allow);
   await repo.saveJson(runId, FILENAMES.discoverySummaryJson, summary);
   await repo.saveJson(runId, FILENAMES.manualReviewJson, manualReview);
   await repo.saveJson(runId, FILENAMES.discoveryValidationJson, validation);
@@ -108,10 +114,10 @@ export async function runPipeline(repo: FilesystemRepository, runId: string): Pr
   // Phase 8 — Report bundle
   const inputs = { model, overview, inventory, featureTree: tree, featureRel: rel, qaMap, checklist, summary, manualReview, validation };
   const bundle = buildBundle(inputs, at);
-  assertClean(bundle, "bundle.json");
+  assertClean(bundle, "bundle.json", allow);
   await repo.saveJson(runId, FILENAMES.bundleJson, bundle);
   const reportMd = renderReportMd(inputs);
-  assertClean(reportMd, "report.md");
+  assertClean(reportMd, "report.md", allow);
   await repo.saveFile(runId, FILENAMES.reportMd, reportMd);
   await repo.saveFile(runId, FILENAMES.reportHtml, renderReportHtml(inputs));
 

@@ -48,9 +48,9 @@ const SUBFEATURES: Record<string, { label: string; match: RegExp }[]> = {
     { label: "Categories", match: /categor|chip/i },
   ],
   booking: [
-    { label: "Movie Selection", match: /movie|book/i },
-    { label: "Seat Selection", match: /seat|select/i },
-    { label: "Showtimes", match: /showtime|timing/i },
+    { label: "Movie Selection", match: /\bmovie\b|book now/i },
+    { label: "Seat Selection", match: /\bseat\b/i },
+    { label: "Showtimes", match: /showtime|show timing/i },
   ],
   payment: [
     { label: "Payment Methods", match: /pay|card|upi|wallet/i },

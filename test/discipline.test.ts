@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scanText, isClean, assertClean } from "../src/core/discipline.js";
+import { scanText, isClean, assertClean, buildAllowBlob, scanTextAllow, scanJsonAllow } from "../src/core/discipline.js";
 
 describe("scope discipline (canonical forbidden-token list)", () => {
   it("flags test-case / pass-fail / verification / risk phrasing", () => {
@@ -22,5 +22,39 @@ describe("scope discipline (canonical forbidden-token list)", () => {
   it("assertClean throws on a dirty object and passes a clean one", () => {
     expect(() => assertClean({ label: "verify checkout" }, "x")).toThrow();
     expect(() => assertClean({ label: "Checkout", behavior: "opens Payment" }, "x")).not.toThrow();
+  });
+});
+
+describe("inventory-noun exception (captured app content)", () => {
+  // the target app's own endpoint contains a forbidden token verbatim
+  const allow = buildAllowBlob({
+    apis: [{ endpointPattern: "POST /_sec/verify?provider", label: "POST /_sec/verify?provider" }],
+    pages: [{ label: "Verify Email", title: "Verify Email" }],
+  });
+
+  it("permits a forbidden token carried by captured app content (raw + slugged)", () => {
+    expect(scanTextAllow("API:POST:/_sec/verify?provider", allow)).toEqual([]);
+    // slug-derived id form
+    expect(scanTextAllow("MAP:apis:post-sec-verify-provider", allow)).toEqual([]);
+    expect(scanTextAllow("[ ] Verify Email", allow)).toEqual([]);
+  });
+
+  it("still flags AUTHORED drift not grounded in app content", () => {
+    expect(scanTextAllow("you should navigate to the dashboard", allow).length).toBeGreaterThan(0);
+    expect(scanJsonAllow({ behavior: "verify the total is correct" }, allow).length).toBeGreaterThan(0);
+  });
+
+  it("assertClean with an allow-blob permits app content but still catches drift", () => {
+    expect(() => assertClean({ endpointPattern: "POST /_sec/verify" }, "api", allow)).not.toThrow();
+    expect(() => assertClean({ inferredPurpose: "verify the login works" }, "x", allow)).toThrow();
+  });
+
+  it("does NOT launder a multi-word forbidden phrase (critical: length gate uses full token)", () => {
+    // app content contains the phrase inside a longer label
+    const a = buildAllowBlob({ label: "You should return items within 30 days" });
+    // the exact app phrase (longer window) is permitted...
+    expect(scanTextAllow("policy: you should return items within 30 days", a)).toEqual([]);
+    // ...but a bare authored "should return" is NOT laundered by it
+    expect(scanTextAllow("the function should return null on error", a).length).toBeGreaterThan(0);
   });
 });

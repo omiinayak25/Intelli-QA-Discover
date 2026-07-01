@@ -535,7 +535,18 @@ function buildFeatures(
     const roleAvail = Array.from(
       new Set([...mp.flatMap((p) => p.roleVisibility), ...mc.flatMap((c) => c.roleVisibility)]),
     ).sort();
-    const conf = mp.length + mc.length >= 3 ? 95 : mp.length + mc.length >= 1 ? 85 : 70;
+    // Confidence proportional to EVIDENCE STRENGTH, not just count. A dedicated
+    // page/form/component is strong evidence a feature exists; a lone global/nav
+    // (e.g. footer) link is weak — so features named only from footer signals
+    // stay honestly low rather than claiming near-certainty.
+    const dedicatedComps = mc.filter((c) => c.scope !== "global").length;
+    const globalOnlyComps = mc.length - dedicatedComps;
+    const evidenceScore = mp.length * 2 + mf.length * 2 + dedicatedComps * 2 + globalOnlyComps;
+    const weakOnly = mp.length === 0 && mf.length === 0 && dedicatedComps === 0;
+    const conf = weakOnly ? 68 : evidenceScore >= 5 ? 92 : evidenceScore >= 3 ? 84 : 74;
+    const lowReason = weakOnly
+      ? `Named only from ${globalOnlyComps} global/navigation signal(s) (e.g. footer links); no dedicated page, form, or component confirms it — confirm by manual exploration.`
+      : "Feature grouped from limited evidence; confirm by manual exploration.";
     out.push({
       id: id("FEAT", area.key),
       category: "business_feature",
@@ -557,9 +568,9 @@ function buildFeatures(
       leadsTo: [],
       partOfFlow: null,
       semanticConfidence: conf,
-      semanticConfidenceReason: conf < LOW_CONFIDENCE_THRESHOLD ? "Feature named from limited evidence." : null,
+      semanticConfidenceReason: conf < LOW_CONFIDENCE_THRESHOLD ? lowReason : null,
       confidence: conf,
-      confidenceReason: conf < LOW_CONFIDENCE_THRESHOLD ? "Feature grouped from limited evidence." : undefined,
+      confidenceReason: conf < LOW_CONFIDENCE_THRESHOLD ? lowReason : undefined,
       manualReview: false,
     });
   }

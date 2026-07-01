@@ -1,0 +1,41 @@
+{
+  "name": "qa-discovery-agent",
+  "version": "1.0.0",
+  "description": "QA Discovery Agent — a discovery-only tool that safely crawls a running web application and produces an Application Overview, QA Inventory, Business Feature Tree, Hierarchical QA Map, QA Checklist, Discovery Summary, and Manual Review. It never generates test cases, pass/fail verdicts, or risk scores.",
+  "type": "module",
+  "bin": {
+    "discover": "./bin/discover.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "discover": "tsx src/cli/discover.ts",
+    "fixture": "tsx fixture/server.ts",
+    "pipeline": "tsx src/cli/pipeline.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:scope": "tsx src/cli/scope-lint.ts",
+    "e2e": "tsx src/cli/e2e.ts"
+  },
+  "keywords": [
+    "qa",
+    "discovery",
+    "crawler",
+    "playwright",
+    "manual-testing",
+    "inventory"
+  ],
+  "author": "QA Discovery Agent",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0"
+  }
+}

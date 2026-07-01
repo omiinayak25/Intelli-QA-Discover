@@ -1,0 +1,28 @@
+{
+  "url": "http://localhost:4599/",
+  "headless": true,
+  "maxStates": 60,
+  "maxDepth": 4,
+  "maxTimeMs": 90000,
+  "roles": [
+    { "role": "guest" },
+    {
+      "role": "user",
+      "loginUrl": "http://localhost:4599/login",
+      "loginSteps": [
+        { "selector": "#username", "value": "alice@example.com", "action": "fill" },
+        { "selector": "#password", "value": "secret123", "action": "fill" },
+        { "selector": "button[type=submit]", "action": "click" }
+      ]
+    },
+    {
+      "role": "admin",
+      "loginUrl": "http://localhost:4599/login",
+      "loginSteps": [
+        { "selector": "#username", "value": "admin@example.com", "action": "fill" },
+        { "selector": "#password", "value": "secret123", "action": "fill" },
+        { "selector": "button[type=submit]", "action": "click" }
+      ]
+    }
+  ]
+}

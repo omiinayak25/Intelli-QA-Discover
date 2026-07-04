@@ -131,6 +131,11 @@ export interface CaptureState {
   capture: {
     screenshotPath?: string;
     viewportShotPath?: string;
+    tabletShotPath?: string;
+    mobileShotPath?: string;
+    shotWidth?: number;
+    shotHeight?: number;
+    componentBoxes?: { id: string; label: string; type: string; x: number; y: number; w: number; h: number }[];
     domPath?: string;
     a11yPath?: string;
     computedStylesPath?: string;

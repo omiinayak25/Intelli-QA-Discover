@@ -78,9 +78,35 @@ npx tsx src/cli/diff.ts --from RUN:<old> --to RUN:<new>
 npm run lint:scope -- runs
 ```
 
-Artifacts land in `runs/<runId>/`. Open `runs/<runId>/report.html` in a browser for the
-interactive tree (expand/collapse, tri-state tick-off with roll-up, live progress %,
-confidence badges, inferred semantics). It is fully self-contained — no server needed.
+Artifacts land in `runs/<runId>/`. **Open `runs/<runId>/portal.html`** — the primary output
+is a self-contained, enterprise-grade **interactive QA Discovery Portal** (no server, no
+external network). A manual tester opens one file and understands the whole application
+within minutes.
+
+### The Portal (`portal.html`)
+
+A single-file SPA (dark/light) with a dashboard and left-nav, generated after every run:
+
+- **Dashboard** — KPI cards, Discovery-Confidence & Completeness rings, coverage map, and a
+  "where a human must look" panel.
+- **Application Overview** — a senior-QA read of what the app is (domain, capabilities, auth,
+  payments, languages).
+- **Business Modules** — expandable cards grouping features → pages → components → forms → flows.
+- **Business Feature Tree** & **Application Structure** — clickable trees (business vs structural).
+- **Pages** — each with an **annotated screenshot overlay** (numbered hotspots over the real
+  desktop/tablet/mobile screenshot), page facts, components, forms, states.
+- **Components** — virtualized (handles 10k+), filter/sort, full detail per component.
+- **Forms · Flows · States · Hidden · API Map · Navigation** — sortable tables.
+- **Relationships** — an SVG feature-to-feature graph; **Flows** render as step chains.
+- **Screenshots & Component Gallery**, **Coverage Map**, **Discovery Timeline** (replayable),
+  **Discovery Validation**, **Manual Review** table.
+- **QA Checklist** — tri-state tick-off, persisted in `localStorage`.
+- **Global search** (`Ctrl/Cmd+K`) across every entity, and an **AI Assistant** that answers
+  *only from the discovery model* (deterministic — never invents or hallucinates).
+- **Exports** — JSON, Markdown, CSV, and PDF (print), all from the same model.
+
+`report.html` (a lighter self-contained tree) and the Markdown/JSON artifacts are still
+emitted for exports and back-compat.
 
 ## Deliverables (per run)
 
@@ -94,6 +120,7 @@ confidence badges, inferred semantics). It is fully self-contained — no server
 | 6 | Discovery Summary + Validation | `discovery-summary.*` · `discovery-validation.*` |
 | 7 | Manual Review Required | `manual-review.json` · `.md` |
 | — | Discovery Model (source of truth) | `discovery-model.json` · `.md` |
+| ★ | **Interactive Portal (primary)** | **`portal.html`** |
 | — | Report bundle | `report.md` · `report.html` · `bundle.json` |
 
 Every discovered item carries a **`confidence`** (0–100, certainty of *discovery*, never a

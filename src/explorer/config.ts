@@ -38,6 +38,10 @@ export interface ExplorerConfig {
   sitemapUrls: string[];
   captureShapeMaxKeys: number;
   simulateStates: string[]; // e.g. ["offline"]
+  /** Capture full-page screenshots + component bounding boxes for the portal. */
+  captureScreenshots: boolean;
+  /** Also capture tablet + mobile full-page screenshots (reflow of loaded page). */
+  captureResponsive: boolean;
   outputDir: string;
   resume: boolean;
 }
@@ -90,6 +94,8 @@ export function resolveConfig(partial: Partial<ExplorerConfig> & { url: string }
     sitemapUrls: partial.sitemapUrls ?? [],
     captureShapeMaxKeys: partial.captureShapeMaxKeys ?? 40,
     simulateStates: partial.simulateStates ?? ["offline"],
+    captureScreenshots: partial.captureScreenshots ?? true,
+    captureResponsive: partial.captureResponsive ?? true,
     outputDir: partial.outputDir ?? "runs",
     resume: partial.resume ?? false,
   };

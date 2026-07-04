@@ -28,6 +28,9 @@ import {
   renderSummaryMd, renderManualReviewMd, renderValidationMd,
 } from "../builders/summary.js";
 import { buildBundle, renderReportMd, renderReportHtml } from "../builders/report.js";
+import { buildPortal } from "../portal/portal.js";
+import type { ScreenshotSet } from "../portal/model.js";
+import { pageArchetypeSlug } from "../core/ids.js";
 
 interface Args { run?: string; out: string }
 
@@ -121,7 +124,35 @@ export async function runPipeline(repo: FilesystemRepository, runId: string): Pr
   await repo.saveFile(runId, FILENAMES.reportMd, reportMd);
   await repo.saveFile(runId, FILENAMES.reportHtml, renderReportHtml(inputs));
 
+  // Phase 8 (primary output) — the interactive enterprise portal.
+  const screenshots = buildScreenshotMap(raw);
+  const portalHtml = buildPortal(inputs, raw, screenshots);
+  assertClean(portalHtml, "portal.html", allow);
+  await repo.saveFile(runId, "portal.html", portalHtml);
+
   return model;
+}
+
+/** Map page archetype -> screenshots + component boxes from the raw capture. */
+function buildScreenshotMap(raw: RawCapture): Record<string, ScreenshotSet> {
+  const out: Record<string, ScreenshotSet> = {};
+  for (const st of Object.values(raw.statesById)) {
+    const key = pageArchetypeSlug(st.url);
+    const cap: any = st.capture || {};
+    const existing = out[key];
+    // prefer guest, and the first state that actually has a shot
+    if (existing && existing.desktop) continue;
+    const set: ScreenshotSet = {
+      desktop: cap.screenshotPath || cap.viewportShotPath,
+      tablet: cap.tabletShotPath,
+      mobile: cap.mobileShotPath,
+      width: cap.shotWidth,
+      height: cap.shotHeight,
+      boxes: (cap.componentBoxes as ScreenshotSet["boxes"]) || undefined,
+    };
+    if (set.desktop || set.tablet || set.mobile) out[key] = set;
+  }
+  return out;
 }
 
 const isMain = process.argv[1] && process.argv[1].endsWith("pipeline.ts");
@@ -144,6 +175,7 @@ if (isMain) {
         `features=${model.features.length} flows=${model.flows.length} apis=${model.apis.length}`,
     );
     console.log(`[pipeline] artifacts in: ${repo.runDir(runId)}`);
+    console.log(`[pipeline] ▶ open the interactive portal: ${repo.runDir(runId)}/portal.html`);
   })().catch((err) => {
     console.error("[pipeline] error:", err.message);
     process.exit(1);

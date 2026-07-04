@@ -361,14 +361,10 @@ export class Explorer {
         hash(structural),
       );
 
-      // capture screenshot as evidence (best effort)
-      const shotRel = `captures/${role.role}__${pageSlug}__${hash(structural)}/screenshot.png`;
-      try {
-        const buf = await page.screenshot({ fullPage: false });
-        await this.repo.saveFile(this.runId, shotRel, buf);
-      } catch {
-        /* evidence best-effort */
-      }
+      // capture screenshots (desktop + responsive) + component bounding boxes
+      // for the portal's annotated overlay (best effort — never fails the crawl)
+      const shotDir = `captures/${role.role}__${pageSlug}__${hash(structural)}`;
+      const shots = await this.captureScreens(page, shotDir, extract.components, pageSlug);
 
       // network correlations for this state
       const network = pendingRequests
@@ -484,8 +480,8 @@ export class Explorer {
           authTruncated: false,
           detectionStrength: extract.components.length > 3 ? "strong" : "medium",
         },
-        responsiveBreakpoints: [],
-        capture: { screenshotPath: shotRel },
+        responsiveBreakpoints: this.config.captureResponsive ? this.config.responsiveBreakpoints.map((b) => b.name) : [],
+        capture: shots,
       };
 
       // record destructive-looking actions as skipped-for-safety (not clicked)
@@ -833,6 +829,90 @@ export class Explorer {
 
   private async extract(page: Page) {
     return page.evaluate(extractorFn);
+  }
+
+  /**
+   * Capture full-page screenshots (desktop + responsive) and component bounding
+   * boxes (absolute document coords, capped) so the portal can draw an annotated
+   * overlay. Evidence-only; failures never abort the crawl. Screenshots are
+   * clipped to a max height to bound size on very tall pages.
+   */
+  private async captureScreens(
+    page: Page,
+    dir: string,
+    extractComps: { selector: string; label: string; type: string }[],
+    pageSlug: string,
+  ): Promise<CaptureState["capture"]> {
+    const out: CaptureState["capture"] = {};
+    if (!this.config.captureScreenshots) return out;
+    const MAXH = 6000;
+    try {
+      const dims = await page.evaluate(() => ({
+        w: Math.max(document.documentElement.scrollWidth, document.body ? document.body.scrollWidth : 0, window.innerWidth),
+        h: Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0, window.innerHeight),
+      }));
+      const shotH = Math.min(dims.h, MAXH);
+      out.shotWidth = dims.w;
+      out.shotHeight = shotH;
+
+      const sels = extractComps.map((c) => ({
+        id: componentId(pageSlug, c.selector, c.label),
+        selector: c.selector,
+        label: c.label,
+        type: c.type,
+      }));
+      out.componentBoxes = await page.evaluate(
+        (args) => {
+          const items = args.items as { id: string; selector: string; label: string; type: string }[];
+          const maxH = args.maxH as number;
+          const res: { id: string; label: string; type: string; x: number; y: number; w: number; h: number }[] = [];
+          const seen = new Set<string>();
+          for (const it of items) {
+            let el: Element | null = null;
+            try {
+              el = document.querySelector(it.selector);
+            } catch {
+              el = null;
+            }
+            if (!el || seen.has(it.id)) continue;
+            const r = el.getBoundingClientRect();
+            const x = r.left + window.scrollX;
+            const y = r.top + window.scrollY;
+            if (r.width < 8 || r.height < 8 || r.width > 3000 || y > maxH) continue;
+            seen.add(it.id);
+            res.push({ id: it.id, label: it.label || it.type, type: it.type, x: Math.round(x), y: Math.round(y), w: Math.round(r.width), h: Math.round(Math.min(r.height, maxH - y)) });
+            if (res.length >= 60) break;
+          }
+          return res;
+        },
+        { items: sels, maxH: shotH },
+      );
+
+      const clip = { x: 0, y: 0, width: Math.min(dims.w, 2000), height: shotH };
+      out.screenshotPath = dir + "/desktop.png";
+      await this.repo.saveFile(this.runId, out.screenshotPath, await page.screenshot({ clip }));
+
+      if (this.config.captureResponsive) {
+        const orig = page.viewportSize();
+        for (const bp of [{ name: "tablet", w: 820, h: 1180 }, { name: "mobile", w: 390, h: 844 }]) {
+          try {
+            await page.setViewportSize({ width: bp.w, height: bp.h });
+            await page.waitForTimeout(220);
+            const rh = await page.evaluate(() => Math.min(6000, Math.max(document.documentElement.scrollHeight, window.innerHeight)));
+            const rel = dir + "/" + bp.name + ".png";
+            await this.repo.saveFile(this.runId, rel, await page.screenshot({ clip: { x: 0, y: 0, width: bp.w, height: rh } }));
+            if (bp.name === "tablet") out.tabletShotPath = rel;
+            else out.mobileShotPath = rel;
+          } catch {
+            /* responsive shot best-effort */
+          }
+        }
+        if (orig) await page.setViewportSize(orig).catch(() => {});
+      }
+    } catch {
+      /* screenshots are evidence-only */
+    }
+    return out;
   }
 
   private normalizeUrl(rawUrl: string): string {

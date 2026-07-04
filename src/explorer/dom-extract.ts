@@ -145,7 +145,14 @@ export function extractorFn(): RawExtract {
     if (tag === "select") return "dropdown";
     if (tag === "table" || role === "grid" || role === "table") return "table";
     if (tag === "canvas") return "chart";
-    if (tag === "svg" && el.querySelector("path,rect,circle")) return "chart";
+    if (tag === "svg") {
+      // Only a genuinely chart-like SVG counts as a chart — not decorative icons.
+      const cls = (el.getAttribute("class") || "").toLowerCase();
+      const aria = (el.getAttribute("aria-label") || "").toLowerCase();
+      const shapeCount = el.querySelectorAll("path,rect,circle,line,polyline,polygon").length;
+      if (/chart|graph|plot|sparkline/.test(cls + " " + aria) || shapeCount > 10) return "chart";
+      return "custom"; // icon / illustration
+    }
     if (tag === "video") return "video";
     if (role === "tablist" || el.classList.contains("tabs")) return "tabs";
     if (role === "dialog" || role === "alertdialog") return "modal";

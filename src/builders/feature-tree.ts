@@ -62,6 +62,30 @@ const SUBFEATURES: Record<string, { label: string; match: RegExp }[]> = {
     { label: "Preferences", match: /preferenc|setting/i },
     { label: "Change Password", match: /password/i },
   ],
+  courses: [
+    { label: "Online Courses", match: /online course|online class/i },
+    { label: "Coaching", match: /coaching/i },
+    { label: "Classroom Program", match: /classroom/i },
+    { label: "Batches", match: /\bbatch/i },
+  ],
+  "study-material": [
+    { label: "Study Material", match: /study material/i },
+    { label: "Previous Papers", match: /previous exam paper/i },
+    { label: "Syllabus", match: /syllabus/i },
+  ],
+  "test-series": [
+    { label: "Test Series", match: /test series/i },
+    { label: "Mock Tests", match: /mock test|practice test/i },
+  ],
+  exams: [
+    { label: "Exam Dates", match: /exam date/i },
+    { label: "Exam Pattern", match: /exam pattern/i },
+    { label: "Eligibility", match: /eligibility/i },
+    { label: "Admit Card", match: /admit card/i },
+    { label: "Application Form", match: /application form/i },
+    { label: "Result", match: /\bresult\b/i },
+    { label: "Cutoff", match: /cutoff/i },
+  ],
   "user-management": [
     { label: "Create User", match: /create user|add user/i },
     { label: "Delete User", match: /delete user|remove user/i },

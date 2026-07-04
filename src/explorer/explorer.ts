@@ -88,6 +88,8 @@ export class Explorer {
   private techByRole: Record<string, TechniqueCounts> = {};
   private loopsPrevented = 0;
   private statesObserved = new Set<string>();
+  private robotsSkipped = new Set<string>();
+  private sitemapSeeds: string[] | null = null;
   private startTime = 0;
 
   constructor(
@@ -237,10 +239,16 @@ export class Explorer {
       loggedIn = await this.performLogin(page, role);
     }
 
-    // BFS crawl
+    // BFS crawl — seed with the entry URL plus the site's own sitemap routes
+    // (the `sitemap` discovery source), important for JS-navigated SPAs whose
+    // routes are not present as <a href> links in the rendered DOM.
     const frontier: { url: string; depth: number; parent: string | null; via: string }[] = [
       { url: this.config.url, depth: 0, parent: null, via: "entry" },
     ];
+    if (this.config.useSitemap) {
+      const seeds = await this.sitemapUrls();
+      for (const u of seeds) frontier.push({ url: u, depth: 1, parent: null, via: "sitemap" });
+    }
     const visitedFingerprints = new Set<string>();
     const visitedUrls = new Set<string>();
 
@@ -513,6 +521,15 @@ export class Explorer {
                 blockerType: "external_redirect",
               });
             }
+          } else if (canNav.reason?.includes("robots")) {
+            // respect robots.txt — record as a skipped page for the Discovery Summary
+            let p = link.href;
+            try {
+              p = new URL(link.href, this.config.url).pathname;
+            } catch {
+              /* keep raw */
+            }
+            this.robotsSkipped.add(p);
           }
           continue;
         }
@@ -524,6 +541,75 @@ export class Explorer {
     }
 
     await context.close();
+  }
+
+  /**
+   * Discover same-origin, robots-allowed routes from the site's sitemap(s).
+   * Handles sitemap indexes (nested sitemaps), dedupes by page archetype so a
+   * spread of distinct templates is seeded rather than thousands of instances.
+   */
+  private async sitemapUrls(): Promise<string[]> {
+    if (this.sitemapSeeds) return this.sitemapSeeds;
+    const found = new Set<string>();
+    const fetchText = async (u: string): Promise<string> => {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 12_000);
+        const res = await fetch(u, { signal: ctrl.signal, headers: { "user-agent": "QADiscoveryAgent (read-only)" } });
+        clearTimeout(t);
+        if (!res.ok) return "";
+        return await res.text();
+      } catch {
+        return "";
+      }
+    };
+    // candidate sitemap URLs: explicit, then robots.txt, then conventional paths
+    const candidates: string[] = [...this.config.sitemapUrls];
+    const robotsTxt = await fetchText(new URL("/robots.txt", this.config.url).toString());
+    for (const m of robotsTxt.matchAll(/sitemap:\s*(\S+)/gi)) candidates.push(m[1].trim());
+    if (candidates.length === 0) {
+      candidates.push(
+        new URL("/sitemap_index.xml", this.config.url).toString(),
+        new URL("/sitemap.xml", this.config.url).toString(),
+      );
+    }
+
+    const seenSitemaps = new Set<string>();
+    const queue = [...new Set(candidates)];
+    let sitemapsFetched = 0;
+    while (queue.length && sitemapsFetched < 12 && found.size < this.config.maxStates * 6) {
+      const sm = queue.shift()!;
+      if (seenSitemaps.has(sm)) continue;
+      seenSitemaps.add(sm);
+      sitemapsFetched++;
+      const xml = await fetchText(sm);
+      const locs = Array.from(xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)).map((m) => m[1]);
+      for (const loc of locs) {
+        // any .xml <loc> is a nested sitemap (index), never a real page
+        if (/\.xml(\.gz)?(\?|$)/i.test(loc)) {
+          queue.push(loc);
+        } else {
+          const nav = this.safety.canNavigate(loc);
+          if (nav.ok) found.add(loc);
+          else if (nav.reason?.includes("robots")) {
+            try {
+              this.robotsSkipped.add(new URL(loc).pathname);
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+      }
+    }
+
+    // dedupe by archetype for template diversity, deterministic order, capped
+    const byArchetype = new Map<string, string>();
+    for (const u of Array.from(found).sort()) {
+      const slug = pageArchetypeSlug(u);
+      if (!byArchetype.has(slug)) byArchetype.set(slug, u);
+    }
+    this.sitemapSeeds = Array.from(byArchetype.values()).slice(0, this.config.maxStates);
+    return this.sitemapSeeds;
   }
 
   private async performLogin(page: Page, role: ExplorerConfig["roles"][number]): Promise<boolean> {
@@ -792,9 +878,12 @@ export class Explorer {
     const telemetry = {
       pagesVisited: states.length,
       pagesVisitedIds,
-      pagesSkipped: this.blockedItems
-        .filter((b) => b.blockerType === "auth_gated")
-        .map((b) => ({ id: b.target, reason: "Authentication Required" })),
+      pagesSkipped: [
+        ...this.blockedItems
+          .filter((b) => b.blockerType === "auth_gated")
+          .map((b) => ({ id: b.target, reason: "Authentication Required" })),
+        ...Array.from(this.robotsSkipped).map((p) => ({ id: p, reason: "Disallowed by robots.txt" })),
+      ],
       rolesCrawled,
       statesObserved: observedUnique,
       statesNotObserved,

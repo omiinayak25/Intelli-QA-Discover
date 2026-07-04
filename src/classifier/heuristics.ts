@@ -21,6 +21,12 @@ const KW = (s: string) => (s ?? "").toLowerCase();
 export function inferComponentSemantics(label: string, type: string, page: string): SemanticGuess {
   const l = KW(label);
   const rules: { match: RegExp; fn: string; purpose: string; behavior?: string; conf: number }[] = [
+    { match: /study material|previous exam paper|\bnotes\b/, fn: "Study Material", purpose: "provides study content", conf: 86 },
+    { match: /test series|mock test|practice test/, fn: "Test Series & Assessments", purpose: "provides practice tests", conf: 86 },
+    { match: /online course|online class|coaching|classroom|enroll|\bbatch/, fn: "Courses & Coaching", purpose: "opens course/coaching enrollment", conf: 84 },
+    { match: /exam date|exam pattern|exam detail|admit card|eligibility|cutoff|syllabus|application form|\bresult\b|notification/, fn: "Exam Information", purpose: "shows exam information", conf: 82 },
+    { match: /watch now/, fn: "Media", purpose: "plays a video", behavior: "plays a video", conf: 84 },
+    { match: /buy now|application fee|\bprice\b/, fn: "Payment", purpose: "begins checkout", behavior: "opens Payment", conf: 84 },
     { match: /book now|\bbooking\b|reserve seat|\bshowtime/, fn: "Booking", purpose: "starts a booking", behavior: "opens Seat Selection", conf: 90 },
     { match: /\bpay|checkout|payment\b/, fn: "Payment", purpose: "begins the payment step", behavior: "opens Payment", conf: 88 },
     { match: /\bsearch\b/, fn: "Search & Discovery", purpose: "searches the catalog", behavior: "shows results", conf: 92 },
@@ -85,12 +91,17 @@ export interface FeatureArea {
 export const FEATURE_AREAS: FeatureArea[] = [
   { key: "authentication", name: "Authentication", category: "identity", match: /login|sign in|register|sign up|logout|forgot|password|otp|2fa/i },
   { key: "search-discovery", name: "Search & Discovery", category: "search", match: /search|filter|sort|categor|browse|recommend/i },
-  { key: "booking", name: "Booking", category: "booking", match: /book now|\bbooking\b|\bseat\b|showtime|\breservation\b|\breserve\b|\bslot\b|\bticket\b/i },
-  { key: "payment", name: "Payment", category: "commerce", match: /pay|checkout|coupon|wallet|card|upi|invoice/i },
-  { key: "profile-account", name: "Profile & Account", category: "identity", match: /profile|account|avatar|preferenc|setting/i },
-  { key: "user-management", name: "User Management", category: "admin", match: /user management|create user|edit user|delete user|admin/i },
-  { key: "reports", name: "Reports", category: "reporting", match: /report|analytic|dashboard|chart|statistic|export/i },
-  { key: "notifications", name: "Notifications", category: "communication", match: /notification|bell|alert|message|inbox/i },
-  { key: "media", name: "Media", category: "content", match: /video|trailer|gallery|image|media|upload/i },
-  { key: "localization", name: "Localization", category: "cross-cutting", match: /language|locale|region|currency/i },
+  // Learning / ed-tech capabilities (broadly reusable, not site-specific).
+  { key: "courses", name: "Courses & Coaching", category: "learning", match: /online course|online class|coaching|classroom program|classroom|\bbatch(es)?\b|enroll|admission|book (a|your)?\s?(free )?(demo|call|seat)/i },
+  { key: "study-material", name: "Study Material", category: "content", match: /study material|previous exam paper|\bnotes\b|e-?book|download.*material|syllabus/i },
+  { key: "test-series", name: "Test Series & Assessments", category: "assessment", match: /test series|mock test|\bquiz(zes)?\b|practice test|assessment/i },
+  { key: "exams", name: "Exam Information", category: "reference", match: /exam date|exam pattern|exam detail|eligibility|admit card|cutoff|application form|\bresult\b|notification|vacanc/i },
+  { key: "booking", name: "Booking", category: "booking", match: /book now|\bbooking\b|reserve seat|seat selection|showtime|\bslot\b|\bticket\b/i },
+  { key: "payment", name: "Payment", category: "commerce", match: /\bpay\b|checkout|coupon|wallet|\bupi\b|invoice|\bbuy now\b|\bprice\b|\bfees?\b/i },
+  { key: "profile-account", name: "Profile & Account", category: "identity", match: /profile|\baccount\b|avatar|preferenc|setting/i },
+  { key: "user-management", name: "User Management", category: "admin", match: /user management|create user|edit user|delete user/i },
+  { key: "reports", name: "Reports", category: "reporting", match: /report|analytic|dashboard|statistic|\bexport\b/i },
+  { key: "notifications", name: "Notifications", category: "communication", match: /notification|\bbell\b|\balert\b|inbox/i },
+  { key: "media", name: "Media", category: "content", match: /video|trailer|gallery|watch now|\bmedia\b|upload/i },
+  { key: "localization", name: "Localization", category: "cross-cutting", match: /language|locale|region|currency|english|hindi|hinglish/i },
 ];

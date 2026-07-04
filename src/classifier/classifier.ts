@@ -428,7 +428,7 @@ export function classify(raw: RawCapture, generatedAt: string): DiscoveryModel {
   );
 
   // ---- FLOWS ----
-  const flows = buildFlows(raw, Array.from(pageBySlug.values()), features);
+  const flows = buildFlows(raw, Array.from(pageBySlug.values()), features, Array.from(compById.values()));
   // link component partOfFlow / feature flows already carry flow ids
   for (const f of flows) {
     for (const step of f.steps) {
@@ -577,9 +577,50 @@ function buildFeatures(
   return out;
 }
 
-function buildFlows(raw: RawCapture, pages: PageItem[], features: FeatureItem[]): FlowItem[] {
+function buildFlows(
+  raw: RawCapture,
+  pages: PageItem[],
+  features: FeatureItem[],
+  components: ComponentItem[],
+): FlowItem[] {
   const flows: FlowItem[] = [];
   const has = (slugPart: string) => pages.find((p) => p.archetype.includes(slugPart));
+
+  // Enrollment / purchase flow — grounded in real content pages, a Buy Now /
+  // Enroll CTA, and the Payment feature. The terminal payment step hands off to
+  // an external gateway (recorded in Manual Review), so the flow honestly ends
+  // at that boundary. Inferred description only, no verification.
+  const payFeat = features.find((f) => f.id === "FEAT:payment");
+  const learnFeat = features.find((f) =>
+    ["FEAT:courses", "FEAT:study-material", "FEAT:test-series", "FEAT:exams"].includes(f.id),
+  );
+  const home = has("home") ?? pages[0];
+  const contentPage = pages.find(
+    (p) => p !== home && !/404|not-?found|about|contact|terms|privacy/i.test(p.archetype + " " + p.label),
+  );
+  const cta = components.find((c) => /buy now|enroll|get started|book (a|your)|apply|view details/i.test(c.label));
+  if (payFeat && learnFeat && home && contentPage) {
+    const steps = [
+      { order: 1, pageId: home.id, action: "land on homepage" },
+      { order: 2, pageId: contentPage.id, action: "open a course / exam page" },
+      cta && { order: 3, componentId: cta.id, action: "start enrollment / purchase" },
+    ].filter(Boolean) as FlowItem["steps"];
+    const fl = mkFlow(
+      raw,
+      "enrollment",
+      "Enrollment / Purchase Flow",
+      payFeat.id,
+      steps,
+      ["payment-gateway (external — see Manual Review)"],
+    );
+    fl.confidence = 72;
+    fl.confidenceReason =
+      "Inferred from co-occurring content pages + a purchase CTA + the Payment feature; the payment step hands off to an external gateway not crawled.";
+    fl.semanticConfidence = 70;
+    fl.semanticConfidenceReason = fl.confidenceReason;
+    flows.push(fl);
+  }
+
   // Booking flow
   if (has("movies") || has("movie")) {
     const steps = [

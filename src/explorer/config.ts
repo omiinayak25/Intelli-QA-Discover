@@ -30,6 +30,12 @@ export interface ExplorerConfig {
   scrollPasses: number;
   infiniteScrollCap: number;
   sameOriginOnly: boolean;
+  /** robots.txt Disallow patterns (path globs, `*`/`$` supported) — respected. */
+  robotsDisallow: string[];
+  /** Seed the frontier from the site's own sitemap(s) — the `sitemap` source. */
+  useSitemap: boolean;
+  /** Explicit sitemap URLs; if empty, robots.txt + /sitemap(_index).xml are tried. */
+  sitemapUrls: string[];
   captureShapeMaxKeys: number;
   simulateStates: string[]; // e.g. ["offline"]
   outputDir: string;
@@ -79,6 +85,9 @@ export function resolveConfig(partial: Partial<ExplorerConfig> & { url: string }
     scrollPasses: partial.scrollPasses ?? 6,
     infiniteScrollCap: partial.infiniteScrollCap ?? 10,
     sameOriginOnly: partial.sameOriginOnly ?? true,
+    robotsDisallow: partial.robotsDisallow ?? [],
+    useSitemap: partial.useSitemap ?? true,
+    sitemapUrls: partial.sitemapUrls ?? [],
     captureShapeMaxKeys: partial.captureShapeMaxKeys ?? 40,
     simulateStates: partial.simulateStates ?? ["offline"],
     outputDir: partial.outputDir ?? "runs",

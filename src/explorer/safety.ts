@@ -9,11 +9,18 @@ import type { ExplorerConfig } from "./config.js";
 export class SafetyPolicy {
   private readonly deny: RegExp[];
   private readonly allow: RegExp[];
+  private readonly robots: RegExp[];
   private readonly origin: string;
 
   constructor(private readonly config: ExplorerConfig) {
     this.deny = config.denyList.map((r) => new RegExp(r, "i"));
     this.allow = config.allowList.map((r) => new RegExp(r, "i"));
+    // Compile robots.txt Disallow globs into path regexes (`*` -> .*, trailing `$`).
+    this.robots = (config.robotsDisallow ?? []).map((p) => {
+      let rx = p.replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+      if (rx.endsWith("\\$")) rx = rx.slice(0, -2) + "$";
+      return new RegExp("^" + rx, "i");
+    });
     let origin = "";
     try {
       origin = new URL(config.url).origin;
@@ -75,6 +82,17 @@ export class SafetyPolicy {
       if (targetOrigin !== this.origin) {
         return { ok: false, reason: "external/off-origin (recorded, not crawled)" };
       }
+    }
+    // respect robots.txt Disallow rules (path + query)
+    let pathAndQuery = targetUrl;
+    try {
+      const u = new URL(targetUrl, this.config.url);
+      pathAndQuery = u.pathname + u.search;
+    } catch {
+      /* keep raw */
+    }
+    if (this.robots.some((r) => r.test(pathAndQuery))) {
+      return { ok: false, reason: "robots.txt disallow (skipped-for-politeness)" };
     }
     return { ok: true };
   }

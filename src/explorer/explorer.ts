@@ -34,6 +34,16 @@ import type {
 } from "../core/raw-capture.js";
 import type { Repository } from "../storage/repository.js";
 
+export interface ExplorerProgress {
+  stage: string;
+  role?: string;
+  pagesVisited?: number;
+  componentsFound?: number;
+  currentUrl?: string;
+  currentTitle?: string;
+  blocked?: number;
+}
+
 function emptyTechnique(): TechniqueCounts {
   return {
     accordionsFound: 0,
@@ -92,11 +102,20 @@ export class Explorer {
   private sitemapSeeds: string[] | null = null;
   private startTime = 0;
 
+  /**
+   * Optional, additive progress hook — lets a host (e.g. the web backend) show
+   * live crawl progress. It never affects the raw capture or the Discovery
+   * Model; purely observational.
+   */
+  onProgress?: (ev: ExplorerProgress) => void;
+
   constructor(
     partial: Partial<ExplorerConfig> & { url: string },
     private readonly repo: Repository,
     private readonly generatedAt: string,
+    onProgress?: (ev: ExplorerProgress) => void,
   ) {
+    this.onProgress = onProgress;
     this.config = resolveConfig(partial);
     this.safety = new SafetyPolicy(this.config);
     this.crawlKey = this.config.crawlId ?? hash(this.config.url, this.generatedAt);
@@ -152,6 +171,7 @@ export class Explorer {
     browser: Browser,
     role: ExplorerConfig["roles"][number],
   ): Promise<void> {
+    this.onProgress?.({ stage: "crawling-role", role: role.role });
     const context = await browser.newContext({ viewport: this.config.viewport });
     const roleTech = this.techByRole[role.role];
 
@@ -494,6 +514,15 @@ export class Explorer {
 
       this.statesById[stateId] = state;
       this.perRolePartitions[role.role].push(stateId);
+      this.onProgress?.({
+        stage: "exploring",
+        role: role.role,
+        pagesVisited: Object.keys(this.statesById).length,
+        componentsFound: Object.values(this.statesById).reduce((a, s) => a + s.components.length, 0),
+        currentUrl: finalUrl,
+        currentTitle: extract.title,
+        blocked: this.blockedItems.length,
+      });
       if (node.parent) {
         this.edges.push({
           from: node.parent,

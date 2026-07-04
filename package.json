@@ -11,6 +11,12 @@
     "discover": "tsx src/cli/discover.ts",
     "fixture": "tsx fixture/server.ts",
     "pipeline": "tsx src/cli/pipeline.ts",
+    "server": "tsx src/server/server.ts",
+    "web:dev": "npm --prefix web run dev",
+    "web:build": "npm --prefix web run build",
+    "web:install": "npm --prefix web install",
+    "dev": "PORT=4000 tsx watch src/server/server.ts & npm --prefix web run dev",
+    "start": "npm run web:build && PORT=3000 tsx src/server/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint:scope": "tsx src/cli/scope-lint.ts",
@@ -30,12 +36,16 @@
     "node": ">=20"
   },
   "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2",
     "playwright": "^1.48.0"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^2.1.0"
   }
 }

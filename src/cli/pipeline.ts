@@ -134,7 +134,7 @@ export async function runPipeline(repo: FilesystemRepository, runId: string): Pr
 }
 
 /** Map page archetype -> screenshots + component boxes from the raw capture. */
-function buildScreenshotMap(raw: RawCapture): Record<string, ScreenshotSet> {
+export function buildScreenshotMap(raw: RawCapture): Record<string, ScreenshotSet> {
   const out: Record<string, ScreenshotSet> = {};
   for (const st of Object.values(raw.statesById)) {
     const key = pageArchetypeSlug(st.url);

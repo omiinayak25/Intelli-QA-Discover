@@ -45,9 +45,38 @@ risk. That line is enforced in code (see [Scope discipline](#scope-discipline)).
 ```bash
 npm install
 npx playwright install chromium
+npm run web:install     # frontend deps
 ```
 
 Requires Node ≥ 20.
+
+## Run the platform (one web app — like ChatGPT / Vercel)
+
+Intelli QA Discover is **one web application**: you always open the same URL,
+paste a website, and the discovered data changes — the UI never does.
+
+```bash
+# production: build the React app, then serve app + API on :3000
+npm start                      # → open http://localhost:3000
+
+# development: API on :4000, Vite dev server on :3000 (hot reload)
+npm run dev                    # → open http://localhost:3000
+```
+
+Then: **paste a URL → Discover Website → watch live progress → land on the
+report** at `/discoveries/{runId}`. History, search, re-run, delete, and every
+report view are dynamic — the same UI renders any site from its Discovery Model.
+
+**Architecture:** `Browser → React frontend (web/) → Express API (src/server/) →
+Discovery Engine (src/explorer + classifier + builders, unchanged) → Discovery
+Model → JSON store (data/) → frontend renders dynamically.` The engine is used as
+a service; the only engine change is an **optional** progress callback (it never
+alters the Discovery Model). API: `POST /api/discover`, `GET /api/discoveries`,
+`GET /api/discoveries/:id`, `GET /api/discoveries/:id/model`,
+`GET /api/discoveries/:id/events` (SSE live progress), `DELETE …`, `POST …/rerun`,
+`GET /api/search`.
+
+### CLI (the engine directly, still available)
 
 ## Quick start
 

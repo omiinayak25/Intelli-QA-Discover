@@ -20,6 +20,10 @@ import { promises as fs } from "node:fs";
 import { DiscoveryStore } from "./store.js";
 import { JobManager } from "./jobs.js";
 import { loadPortalModel } from "./model.js";
+import type { LiveBrowser } from "./live.js";
+import { FILENAMES } from "../core/constants.js";
+import { buildDiff, renderDiffMd } from "../builders/diff.js";
+import { fetchNews } from "./news.js";
 
 function isValidUrl(u: string): boolean {
   try {
@@ -40,8 +44,30 @@ const MIME: Record<string, string> = {
   ".csv": "text/csv",
 };
 
-export function createApiRouter(store: DiscoveryStore, jobs: JobManager): Router {
+export function createApiRouter(store: DiscoveryStore, jobs: JobManager, live: LiveBrowser): Router {
   const r = Router();
+
+  // ---- Live Browser Mode: open a real browser to the component and highlight it ----
+  r.post("/discoveries/:id/live/open", async (req, res) => {
+    const rec = await store.get(req.params.id);
+    if (!rec) return res.status(404).json({ error: "not found" });
+    const { componentId } = req.body || {};
+    if (!componentId) return res.status(400).json({ error: "componentId required" });
+    try {
+      const result = await live.openComponent(rec.id, rec.runId, componentId);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+  r.get("/discoveries/:id/live/frame", async (req, res) => {
+    const shot = await live.frame(req.params.id);
+    res.json({ screenshot: shot });
+  });
+  r.post("/discoveries/:id/live/close", async (req, res) => {
+    await live.close(req.params.id);
+    res.json({ ok: true });
+  });
 
   r.post("/discover", async (req, res) => {
     const { url, options } = req.body || {};
@@ -154,6 +180,46 @@ export function createApiRouter(store: DiscoveryStore, jobs: JobManager): Router
     } catch {
       res.status(404).end();
     }
+  });
+
+  // ---- Projects (Phase 3 workspace) ----
+  r.get("/projects", async (_req, res) => res.json(store.listProjects()));
+  r.get("/stats", async (_req, res) => res.json(store.stats()));
+  r.get("/projects/:pid", async (req, res) => {
+    const p = store.getProject(req.params.pid);
+    if (!p) return res.status(404).json({ error: "not found" });
+    res.json({ ...p, runs: store.runsByProject(req.params.pid) });
+  });
+  r.get("/projects/:pid/runs", async (req, res) => res.json(store.runsByProject(req.params.pid)));
+  r.patch("/projects/:pid", async (req, res) => {
+    const p = store.updateProject(req.params.pid, req.body || {}, new Date().toISOString());
+    res.status(p ? 200 : 404).json(p || { error: "not found" });
+  });
+  r.delete("/projects/:pid", async (req, res) => { await store.deleteProject(req.params.pid); res.json({ ok: true }); });
+
+  // compare two runs of a project (reuses the Phase-9 diff engine, unchanged)
+  r.get("/projects/:pid/compare", async (req, res) => {
+    const from = String(req.query.from || ""), to = String(req.query.to || "");
+    const a = await store.get(from), b = await store.get(to);
+    if (!a || !b) return res.status(404).json({ error: "run not found" });
+    try {
+      const load = (rid: string, f: string) => store.loadArtifact<any>(rid, f);
+      const [om, nm, ot, nt, omr, nmr] = await Promise.all([
+        load(a.runId, FILENAMES.discoveryModelJson), load(b.runId, FILENAMES.discoveryModelJson),
+        load(a.runId, FILENAMES.featureTreeJson), load(b.runId, FILENAMES.featureTreeJson),
+        load(a.runId, FILENAMES.manualReviewJson), load(b.runId, FILENAMES.manualReviewJson),
+      ]);
+      const diff = buildDiff(om, nm, ot, nt, omr, nmr, new Date().toISOString());
+      res.json({ diff, md: renderDiffMd(diff), from: a, to: b });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
+  // news widgets (server-side RSS proxy; degrades gracefully offline)
+  r.get("/news", async (req, res) => {
+    try { res.json(await fetchNews(String(req.query.topic || "qa"))); }
+    catch { res.json([]); }
   });
 
   // global history search

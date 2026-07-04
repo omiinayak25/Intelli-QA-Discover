@@ -32,4 +32,19 @@ export const api = {
   async remove(id: string) { return json<{ ok: boolean }>(await fetch(`${base}/discoveries/${encodeURIComponent(id)}`, { method: "DELETE" })); },
   eventsUrl(id: string) { return `${base}/discoveries/${encodeURIComponent(id)}/events`; },
   modelExportUrl(id: string) { return `${base}/discoveries/${encodeURIComponent(id)}/export/model.json`; },
+  // Live Browser Mode
+  async liveOpen(id: string, componentId: string) {
+    return json<any>(await fetch(`${base}/discoveries/${encodeURIComponent(id)}/live/open`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ componentId }),
+    }));
+  },
+  async liveFrame(id: string) { return json<{ screenshot: string }>(await fetch(`${base}/discoveries/${encodeURIComponent(id)}/live/frame`)); },
+  async liveClose(id: string) { return fetch(`${base}/discoveries/${encodeURIComponent(id)}/live/close`, { method: "POST" }); },
+  // Projects (Phase 3)
+  async listProjects() { return json<any[]>(await fetch(`${base}/projects`)); },
+  async getProject(pid: string) { return json<any>(await fetch(`${base}/projects/${encodeURIComponent(pid)}`)); },
+  async getProjectRuns(pid: string) { return json<any[]>(await fetch(`${base}/projects/${encodeURIComponent(pid)}/runs`)); },
+  async compare(pid: string, from: string, to: string) { return json<any>(await fetch(`${base}/projects/${encodeURIComponent(pid)}/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)); },
+  async stats() { return json<any>(await fetch(`${base}/stats`)); },
+  async news(topic: string) { return json<any[]>(await fetch(`${base}/news?topic=${encodeURIComponent(topic)}`)); },
 };

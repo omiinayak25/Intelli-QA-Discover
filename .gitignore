@@ -10,3 +10,4 @@ test-results/
 data/
 web/node_modules/
 web/dist/
+data-db/

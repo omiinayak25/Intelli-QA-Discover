@@ -11,6 +11,7 @@ import { promises as fs } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { DiscoveryStore } from "./store.js";
 import { JobManager } from "./jobs.js";
+import { LiveBrowser } from "./live.js";
 import { createApiRouter } from "./routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -24,13 +25,14 @@ async function main() {
   const store = new DiscoveryStore(DATA_DIR);
   await store.init();
   const jobs = new JobManager(store);
+  const live = new LiveBrowser(store);
 
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, product: "Intelli QA Discover", dataDir: DATA_DIR }));
-  app.use("/api", createApiRouter(store, jobs));
+  app.use("/api", createApiRouter(store, jobs, live));
 
   // serve the built React app (production); in dev the Vite server proxies /api
   let hasDist = false;

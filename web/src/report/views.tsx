@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useM, Head, Ring, Conf, ConfReason, Table, VirtualList, Tree, IdChip, ScreenshotOverlay, rlink, type TreeItem } from "./ui";
+import { LiveInspector } from "./LiveInspector";
 import { tc } from "../lib/util";
 import type { FeatureNode } from "../lib/types";
 
@@ -272,6 +273,7 @@ function ComponentDetail({ c }: { c: any }) {
   return (
     <>
       <Head title={c.label || c.type} sub={c.inferredPurpose} crumbs={<Link to={rlink(id, "components")}>Components</Link>} />
+      <div className="split">
       <div className="panel"><div className="pb"><dl className="kv-list">
         <dt>Type</dt><dd><span className="tag">{c.type}</span></dd>
         <dt>Business function</dt><dd>{c.businessFunction || "—"}</dd>
@@ -286,6 +288,8 @@ function ComponentDetail({ c }: { c: any }) {
         <dt>Confidence</dt><dd><Conf v={c.confidence} /></dd>
         <dt>Manual review</dt><dd>{c.manualReview ? <><span className="badge r">Required</span> {c.manualReviewReason}</> : "Not required"}</dd>
       </dl><ConfReason o={c} /></div></div>
+      <LiveInspector component={c} />
+      </div>
     </>
   );
 }

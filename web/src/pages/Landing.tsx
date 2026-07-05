@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Conf, timeAgo, useTheme } from "../lib/util";
 import { NewsWidgets } from "../lib/NewsWidgets";
+import { setFlag } from "../experimental/flags";
 
 export default function Landing() {
   const [url, setUrl] = useState("");
@@ -32,6 +33,8 @@ export default function Landing() {
       <div className="lnav">
         <div className="brandmark"><span className="logo">Q</span> Intelli QA Discover</div>
         <div className="spacer" />
+        <button className="btn sm" title="Try the simplified experience (beta) — reversible any time"
+          onClick={() => { setFlag("experimentalUX", true); nav("/x"); }} style={{ borderColor: "var(--accent)", color: "var(--accent)" }}>✨ Try new experience</button>
         <Link className="btn sm" to="/knowledge">Knowledge</Link>
         <Link className="btn sm" to="/projects">Projects</Link>
         <Link className="btn sm" to="/discoveries">History</Link>

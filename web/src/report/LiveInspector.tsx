@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { useM } from "./ui";
+import { track } from "../experimental/flags";
 
 /**
  * Live Browser Mode inspector — opens the real website in a backend Playwright
@@ -21,6 +22,7 @@ export function LiveInspector({ component }: { component: any }) {
     try {
       const r = await api.liveOpen(id, component.id);
       setResult(r); setState("ready");
+      track(r.matchType === "exact" ? "highlightExact" : r.matchType === "closest" ? "highlightClosest" : r.matchType === "region" ? "highlightRegion" : "highlightMiss");
     } catch (e) { setErr((e as Error).message); setState("error"); }
   }
   function toggleLive() {
@@ -57,7 +59,11 @@ export function LiveInspector({ component }: { component: any }) {
         {state === "ready" && result && (
           <>
             <div className="row" style={{ marginBottom: ".6rem" }}>
-              <span className={"badge " + (result.found ? "g" : "n")}>{result.found ? "✔ located · " + result.strategy : "not located"}</span>
+              {result.found
+                ? <span className={"badge match-" + (result.matchType || "region")}>
+                    {result.matchType === "exact" ? "✔ Exact" : result.matchType === "closest" ? "≈ Closest match" : "▢ Region"} {result.confidence != null ? result.confidence + "%" : ""} · {result.strategy}
+                  </span>
+                : <span className="badge n">not located</span>}
               <span className="muted mono" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{result.currentUrl}</span>
               <button className="btn sm" onClick={open} title="Re-locate">↻</button>
               <button className={"btn sm" + (result._live ? " primary" : "")} onClick={toggleLive} title="Live refresh">{result._live ? "● Live" : "○ Live"}</button>

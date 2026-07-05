@@ -22,6 +22,9 @@ export class JobManager {
   private jobs = new Map<string, JobState>();
   private bus = new EventEmitter();
 
+  /** Called after a run completes successfully (e.g. to ingest into knowledge). */
+  onRunDone?: (id: string) => void | Promise<void>;
+
   constructor(private readonly store: DiscoveryStore) {
     this.bus.setMaxListeners(0);
   }
@@ -73,6 +76,7 @@ export class JobManager {
       const record = await runDiscovery(this.store, url, { ...opts, crawlId }, emit);
       const done: DiscoveryRecord = { ...record, id, runId };
       await this.store.upsert(done);
+      try { await this.onRunDone?.(id); } catch { /* knowledge ingest is best-effort */ }
       const job = this.jobs.get(id);
       if (job) { job.status = "done"; job.progress = { stage: "Saving discovery", pct: 100 }; }
       this.bus.emit(id, { type: "done", record: done });

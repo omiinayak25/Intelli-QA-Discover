@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { DiscoveryStore } from "./store.js";
 import { JobManager } from "./jobs.js";
 import { LiveBrowser } from "./live.js";
+import { KnowledgeService } from "../knowledge/service.js";
 import { createApiRouter } from "./routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,13 +27,17 @@ async function main() {
   await store.init();
   const jobs = new JobManager(store);
   const live = new LiveBrowser(store);
+  const knowledge = new KnowledgeService(store, store.db);
+  jobs.onRunDone = async (id) => { await knowledge.ingest(id); }; // every run permanently improves the knowledge base
+  const backfilled = await knowledge.backfill();
+  if (backfilled) console.log(`[knowledge] indexed ${backfilled} existing run(s) into the knowledge base`);
 
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "2mb" }));
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, product: "Intelli QA Discover", dataDir: DATA_DIR }));
-  app.use("/api", createApiRouter(store, jobs, live));
+  app.use("/api", createApiRouter(store, jobs, live, knowledge));
 
   // serve the built React app (production); in dev the Vite server proxies /api
   let hasDist = false;

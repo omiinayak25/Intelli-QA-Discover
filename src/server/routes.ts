@@ -21,6 +21,7 @@ import { DiscoveryStore } from "./store.js";
 import { JobManager } from "./jobs.js";
 import { loadPortalModel } from "./model.js";
 import type { LiveBrowser } from "./live.js";
+import type { KnowledgeService } from "../knowledge/service.js";
 import { FILENAMES } from "../core/constants.js";
 import { buildDiff, renderDiffMd } from "../builders/diff.js";
 import { fetchNews } from "./news.js";
@@ -44,8 +45,22 @@ const MIME: Record<string, string> = {
   ".csv": "text/csv",
 };
 
-export function createApiRouter(store: DiscoveryStore, jobs: JobManager, live: LiveBrowser): Router {
+export function createApiRouter(store: DiscoveryStore, jobs: JobManager, live: LiveBrowser, knowledge: KnowledgeService): Router {
   const r = Router();
+
+  // ---- Knowledge platform (Phase 4 step 2): cross-application intelligence ----
+  r.get("/knowledge/overview", (_req, res) => res.json(knowledge.overview()));
+  r.get("/knowledge/search", (req, res) => res.json(knowledge.search(String(req.query.q || ""))));
+  r.post("/knowledge/ask", (req, res) => res.json(knowledge.ask(String(req.body?.q || ""))));
+  r.get("/knowledge/similar/:runId", (req, res) => res.json(knowledge.similar(req.params.runId)));
+  r.get("/projects/:pid/dna", async (req, res) => {
+    const dna = await knowledge.dna(req.params.pid);
+    res.status(dna ? 200 : 404).json(dna || { error: "no indexed run for project" });
+  });
+  r.post("/knowledge/ingest/:runId", async (req, res) => {
+    const k = await knowledge.ingest(req.params.runId, true);
+    res.status(k ? 200 : 404).json(k || { error: "run not indexable" });
+  });
 
   // ---- Live Browser Mode: open a real browser to the component and highlight it ----
   r.post("/discoveries/:id/live/open", async (req, res) => {
@@ -139,6 +154,7 @@ export function createApiRouter(store: DiscoveryStore, jobs: JobManager, live: L
 
   r.delete("/discoveries/:id", async (req, res) => {
     const ok = await store.remove(req.params.id);
+    store.db.removeKnowledge(req.params.id);
     res.status(ok ? 200 : 404).json({ ok });
   });
 

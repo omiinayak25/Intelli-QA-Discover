@@ -32,6 +32,7 @@ export default function Landing() {
       <div className="lnav">
         <div className="brandmark"><span className="logo">Q</span> Intelli QA Discover</div>
         <div className="spacer" />
+        <Link className="btn sm" to="/knowledge">Knowledge</Link>
         <Link className="btn sm" to="/projects">Projects</Link>
         <Link className="btn sm" to="/discoveries">History</Link>
         <button className="btn sm" onClick={toggle} title="Toggle theme">{theme === "dark" ? "◑" : "◐"}</button>
@@ -60,6 +61,7 @@ export default function Landing() {
 
         <div className="row" style={{ marginTop: "1.4rem", justifyContent: "center", gap: ".5rem" }}>
           <button className="btn" onClick={() => document.querySelector<HTMLInputElement>(".discoverbox input")?.focus()}>+ New Discovery</button>
+          <Link className="btn" to="/knowledge">🧠 Knowledge Base</Link>
           <Link className="btn" to="/projects">Projects</Link>
           <Link className="btn" to="/discoveries">History</Link>
           <Link className="btn" to="/projects">Compare Runs</Link>

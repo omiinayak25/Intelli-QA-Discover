@@ -5,11 +5,13 @@ import Progress from "./pages/Progress";
 import Report from "./pages/Report";
 import Projects from "./pages/Projects";
 import Project from "./pages/Project";
+import Knowledge from "./pages/Knowledge";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/knowledge" element={<Knowledge />} />
       <Route path="/projects" element={<Projects />} />
       <Route path="/projects/:pid" element={<Project />} />
       <Route path="/discoveries" element={<History />} />

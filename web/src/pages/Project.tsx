@@ -12,9 +12,11 @@ export default function Project() {
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [diff, setDiff] = useState<any>(null);
   const [cmpBusy, setCmpBusy] = useState(false);
+  const [dna, setDna] = useState<any>(null);
 
   const load = () => api.getProject(pid!).then((p) => { setProject(p); setRuns(p.runs || []); }).catch(() => {});
   useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [pid]);
+  useEffect(() => { api.projectDna(pid!).then(setDna).catch(() => setDna(null)); }, [pid]);
 
   async function rediscover() { if (!project) return; const { id } = await api.discover(project.baseUrl); nav(`/discover/${id}`); }
   async function del(id: string) { if (confirm("Delete this run?")) { await api.remove(id); load(); } }
@@ -47,6 +49,27 @@ export default function Project() {
           <div className="card kpi"><div className="kv">{done[0]?.counts?.components ?? "—"}</div><div className="kl">Components (latest)</div></div>
           <div className="card kpi"><div className="kv">{done[0]?.confidence != null ? Math.round(done[0].confidence) + "%" : "—"}</div><div className="kl">Confidence (latest)</div></div>
         </div>
+
+        {dna && !dna.error && (
+          <>
+            <h2 className="sec">🧬 Application DNA <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· evidence-based, from accumulated knowledge</span></h2>
+            <div className="split">
+              <div className="panel"><div className="ph">Fingerprint</div><div className="pb"><dl className="kv-list">
+                <dt>Business domain</dt><dd>{dna.domain} <Conf v={dna.domainConfidence} /><div className="muted" style={{ fontSize: 12, marginTop: 3 }}>evidence: {(dna.domainEvidence || []).slice(0, 6).join(", ") || "—"}</div></dd>
+                <dt>Technology</dt><dd>{(dna.tech || []).length ? dna.tech.map((t: any) => <span key={t.name} className="tag" title={"evidence: " + t.evidence}>{t.name}</span>) : <span className="muted">not detected</span>}</dd>
+                <dt>Business modules</dt><dd><div className="chips">{(dna.modules || []).map((m: string) => <span key={m} className="chip" style={{ cursor: "default" }}>{m}</span>)}</div></dd>
+              </dl></div></div>
+              <div className="panel"><div className="ph">Similar applications</div><div className="pb">
+                {(dna.similar || []).length === 0 ? <div className="muted">No comparable applications discovered yet — discover more websites to grow the knowledge.</div> : dna.similar.map((s: any) => (
+                  <Link key={s.runId} to={`/projects/${s.projectId}`} className="between" style={{ padding: ".4rem 0", borderBottom: "1px solid var(--border)", color: "inherit", textDecoration: "none" }}>
+                    <span><b>{s.appName}</b> <span className="muted" style={{ fontSize: 12 }}>· {s.domain}</span><div className="muted" style={{ fontSize: 11 }}>{(s.reasons || []).join(" · ") || "few shared signals"}</div></span>
+                    <span className={"badge " + (s.score >= 60 ? "g" : s.score >= 35 ? "y" : "n")}>{s.score}%</span>
+                  </Link>
+                ))}
+              </div></div>
+            </div>
+          </>
+        )}
 
         <h2 className="sec">Discovery Runs</h2>
         <div className="tblwrap"><table className="tbl">

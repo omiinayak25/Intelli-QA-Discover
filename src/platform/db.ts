@@ -53,6 +53,25 @@ function projectName(origin: string): string {
   try { const h = new URL(origin).hostname.replace(/^www\./, ""); const b = h.split(".")[0]; return b.charAt(0).toUpperCase() + b.slice(1); } catch { return origin; }
 }
 
+export interface TechHit { name: string; category: string; confidence: number; evidence: string }
+export interface KnowledgeRow {
+  runId: string;
+  projectId: string;
+  url: string;
+  appName: string;
+  createdAt: string;
+  domain: string;
+  domainConfidence: number;
+  domainEvidence: string[];
+  modules: string[];
+  featureKeys: string[];
+  componentProfile: Record<string, number>;
+  componentLabels: string[];
+  tech: TechHit[];
+  kpis: Record<string, number>;
+  pages: { label: string; archetype: string }[];
+}
+
 export class Db {
   private db: DatabaseSync;
 
@@ -71,6 +90,16 @@ export class Db {
       );
       CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id);
       CREATE INDEX IF NOT EXISTS idx_runs_created ON runs(created_at);
+
+      -- Knowledge index: one denormalized row per discovered run, the substrate
+      -- for cross-application intelligence (search / similarity / DNA / reasoning).
+      CREATE TABLE IF NOT EXISTS run_knowledge (
+        run_id TEXT PRIMARY KEY, project_id TEXT, url TEXT, app_name TEXT, created_at TEXT,
+        domain TEXT, domain_confidence REAL, domain_evidence TEXT,
+        modules TEXT, feature_keys TEXT, component_profile TEXT, component_labels TEXT,
+        tech TEXT, kpis TEXT, pages TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_know_project ON run_knowledge(project_id);
     `);
   }
 
@@ -161,6 +190,42 @@ export class Db {
 
   private mapRun(r: any): RunRow {
     return { id: r.id, runId: r.run_id, projectId: r.project_id, url: r.url, appName: r.app_name, createdAt: r.created_at, status: r.status, error: r.error, confidence: r.confidence, completeness: r.completeness, counts: safeJson(r.counts, null), durationMs: r.duration_ms };
+  }
+
+  // ---------- knowledge index ----------
+  upsertKnowledge(k: KnowledgeRow): void {
+    this.db.prepare(`
+      INSERT INTO run_knowledge(run_id,project_id,url,app_name,created_at,domain,domain_confidence,domain_evidence,modules,feature_keys,component_profile,component_labels,tech,kpis,pages)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(run_id) DO UPDATE SET project_id=excluded.project_id,url=excluded.url,app_name=excluded.app_name,created_at=excluded.created_at,
+        domain=excluded.domain,domain_confidence=excluded.domain_confidence,domain_evidence=excluded.domain_evidence,modules=excluded.modules,
+        feature_keys=excluded.feature_keys,component_profile=excluded.component_profile,component_labels=excluded.component_labels,tech=excluded.tech,kpis=excluded.kpis,pages=excluded.pages
+    `).run(
+      k.runId, k.projectId, k.url, k.appName, k.createdAt, k.domain, k.domainConfidence,
+      JSON.stringify(k.domainEvidence), JSON.stringify(k.modules), JSON.stringify(k.featureKeys),
+      JSON.stringify(k.componentProfile), JSON.stringify(k.componentLabels), JSON.stringify(k.tech),
+      JSON.stringify(k.kpis), JSON.stringify(k.pages),
+    );
+  }
+  getKnowledge(runId: string): KnowledgeRow | undefined {
+    const r = this.db.prepare(`SELECT * FROM run_knowledge WHERE run_id=?`).get(runId) as any;
+    return r ? this.mapKnowledge(r) : undefined;
+  }
+  allKnowledge(): KnowledgeRow[] {
+    return (this.db.prepare(`SELECT * FROM run_knowledge ORDER BY created_at DESC`).all() as any[]).map((r) => this.mapKnowledge(r));
+  }
+  hasKnowledge(runId: string): boolean {
+    return !!this.db.prepare(`SELECT 1 FROM run_knowledge WHERE run_id=?`).get(runId);
+  }
+  removeKnowledge(runId: string): void { this.db.prepare(`DELETE FROM run_knowledge WHERE run_id=?`).run(runId); }
+  private mapKnowledge(r: any): KnowledgeRow {
+    return {
+      runId: r.run_id, projectId: r.project_id, url: r.url, appName: r.app_name, createdAt: r.created_at,
+      domain: r.domain, domainConfidence: r.domain_confidence, domainEvidence: safeJson(r.domain_evidence, []),
+      modules: safeJson(r.modules, []), featureKeys: safeJson(r.feature_keys, []),
+      componentProfile: safeJson(r.component_profile, {}), componentLabels: safeJson(r.component_labels, []),
+      tech: safeJson(r.tech, []), kpis: safeJson(r.kpis, {}), pages: safeJson(r.pages, []),
+    };
   }
 
   stats(): { projects: number; runs: number; done: number; components: number; pages: number; features: number } {

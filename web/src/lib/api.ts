@@ -47,4 +47,9 @@ export const api = {
   async compare(pid: string, from: string, to: string) { return json<any>(await fetch(`${base}/projects/${encodeURIComponent(pid)}/compare?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)); },
   async stats() { return json<any>(await fetch(`${base}/stats`)); },
   async news(topic: string) { return json<any[]>(await fetch(`${base}/news?topic=${encodeURIComponent(topic)}`)); },
+  // Knowledge platform (Phase 4)
+  async knowledgeOverview() { return json<any>(await fetch(`${base}/knowledge/overview`)); },
+  async knowledgeSearch(q: string) { return json<any>(await fetch(`${base}/knowledge/search?q=${encodeURIComponent(q)}`)); },
+  async knowledgeAsk(q: string) { return json<any>(await fetch(`${base}/knowledge/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q }) })); },
+  async projectDna(pid: string) { return json<any>(await fetch(`${base}/projects/${encodeURIComponent(pid)}/dna`)); },
 };

@@ -38,6 +38,7 @@ export default function Landing() {
         <Link className="btn sm" to="/knowledge">Knowledge</Link>
         <Link className="btn sm" to="/projects">Projects</Link>
         <Link className="btn sm" to="/discoveries">History</Link>
+        <Link className="btn sm" to="/settings">Settings</Link>
         <button className="btn sm" onClick={toggle} title="Toggle theme">{theme === "dark" ? "◑" : "◐"}</button>
       </div>
 

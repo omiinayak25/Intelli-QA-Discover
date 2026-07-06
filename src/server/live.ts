@@ -66,6 +66,10 @@ export class LiveBrowser {
     if (s) { try { await s.context.close(); } catch {} this.sessions.delete(id); }
   }
 
+  async closeAll(): Promise<void> {
+    for (const id of Array.from(this.sessions.keys())) await this.close(id);
+  }
+
   private async sweep(): Promise<void> {
     const now = Date.now();
     for (const [id, s] of this.sessions) if (now - s.lastUsed > IDLE_MS) await this.close(id);

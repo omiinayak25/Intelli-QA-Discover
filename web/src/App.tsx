@@ -6,6 +6,7 @@ import Report from "./pages/Report";
 import Projects from "./pages/Projects";
 import Project from "./pages/Project";
 import Knowledge from "./pages/Knowledge";
+import SettingsPage from "./pages/Settings";
 import SimpleHome from "./experimental/SimpleHome";
 import GuidedReport from "./experimental/GuidedReport";
 import { useFlags } from "./experimental/flags";
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/x/discoveries/:id" element={<GuidedReport />} />
       {/* classic app — unchanged */}
       <Route path="/knowledge" element={<Knowledge />} />
+      <Route path="/settings" element={<SettingsPage />} />
       <Route path="/projects" element={<Projects />} />
       <Route path="/projects/:pid" element={<Project />} />
       <Route path="/discoveries" element={<History />} />

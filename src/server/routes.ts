@@ -99,6 +99,18 @@ export function createApiRouter(store: DiscoveryStore, jobs: JobManager, live: L
     res.json(await store.list());
   });
 
+  // ---- Clear ALL data (projects, runs, knowledge, artifacts). Irreversible. ----
+  r.post("/reset", async (req, res) => {
+    if (req.body?.confirm !== "DELETE") return res.status(400).json({ error: 'confirmation required: {"confirm":"DELETE"}' });
+    try {
+      await live.closeAll();
+      const cleared = await store.clearAll();
+      res.json({ ok: true, cleared });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   r.get("/discoveries/:id", async (req, res) => {
     const rec = await store.get(req.params.id);
     if (!rec) return res.status(404).json({ error: "not found" });

@@ -52,4 +52,5 @@ export const api = {
   async knowledgeSearch(q: string) { return json<any>(await fetch(`${base}/knowledge/search?q=${encodeURIComponent(q)}`)); },
   async knowledgeAsk(q: string) { return json<any>(await fetch(`${base}/knowledge/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ q }) })); },
   async projectDna(pid: string) { return json<any>(await fetch(`${base}/projects/${encodeURIComponent(pid)}/dna`)); },
+  async resetAll() { return json<{ ok: boolean; cleared: any }>(await fetch(`${base}/reset`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ confirm: "DELETE" }) })); },
 };

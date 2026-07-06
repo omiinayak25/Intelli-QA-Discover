@@ -6,7 +6,7 @@
  * manager, engine, and routes keep working; project grouping is layered on top.
  */
 
-import { promises as fs } from "node:fs";
+import { promises as fs, mkdirSync } from "node:fs";
 import path from "node:path";
 import { FilesystemRepository } from "../storage/filesystem.js";
 import { FILENAMES } from "../core/constants.js";
@@ -57,6 +57,8 @@ export class DiscoveryStore {
   constructor(dataDir: string) {
     this.dataDir = path.resolve(dataDir);
     this.runsDir = path.join(this.dataDir, "runs");
+    // ensure the data dir exists before opening the DB (e.g. after a full wipe)
+    mkdirSync(this.runsDir, { recursive: true });
     this.repo = new FilesystemRepository(this.runsDir);
     this.db = new Db(path.join(this.dataDir, "iqad.db"));
   }
@@ -112,6 +114,18 @@ export class DiscoveryStore {
     this.db.deleteProject(id);
   }
   stats() { return this.db.stats(); }
+
+  /** Clear ALL data: every project, run, knowledge row, and run artifact on disk. */
+  async clearAll(): Promise<{ projects: number; runs: number; knowledge: number }> {
+    const cleared = this.db.reset();
+    try {
+      await fs.rm(this.runsDir, { recursive: true, force: true });
+      await fs.mkdir(this.runsDir, { recursive: true });
+    } catch { /* best effort */ }
+    // drop any migrated legacy index too
+    try { await fs.rm(path.join(this.dataDir, "discoveries.json.migrated"), { force: true }); } catch {}
+    return cleared;
+  }
 
   // ---------- artifacts (filesystem cache) ----------
   runDir(runId: string): string { return this.repo.runDir(runId); }

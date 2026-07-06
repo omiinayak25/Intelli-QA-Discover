@@ -228,6 +228,15 @@ export class Db {
     };
   }
 
+  /** Wipe ALL platform data (projects, runs, knowledge). Irreversible. */
+  reset(): { projects: number; runs: number; knowledge: number } {
+    const projects = this.listProjects().length;
+    const runs = this.countRuns();
+    const knowledge = this.allKnowledge().length;
+    this.db.exec(`DELETE FROM run_knowledge; DELETE FROM runs; DELETE FROM projects; VACUUM;`);
+    return { projects, runs, knowledge };
+  }
+
   stats(): { projects: number; runs: number; done: number; components: number; pages: number; features: number } {
     const runs = this.listRuns().filter((r) => r.status === "done");
     return {
